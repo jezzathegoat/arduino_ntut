@@ -1,54 +1,70 @@
-/*
-  Button
 
-  Turns on and off a light emitting diode(LED) connected to digital pin 13,
-  when pressing a pushbutton attached to pin 2.
+const int buttonPin = 2;
+const int ledPin = 3;
 
-  The circuit:
-  - LED attached from pin 13 to ground through 220 ohm resistor
-  - pushbutton attached to pin 2 from +5V
-  - 10K resistor attached to pin 2 from ground
+int buttonState = HIGH;
+int lastButtonState = HIGH;
 
-  - Note: on most Arduinos there is already an LED on the board
-    attached to pin 13.
+int mode = 0;
 
-  created 2005
-  by DojoDave <http://www.0j0.org>
-  modified 30 Aug 2011
-  by Tom Igoe
-
-  This example code is in the public domain.
-
-  https://docs.arduino.cc/built-in-examples/digital/Button/
-*/
-
-// constants won't change. They're used here to set pin numbers:
-
-const int buttonPin = 2;  // button connected to pin 2
-const int ledPin = 3;     // red LED channel connected to pin 3
-
-// variables will change:
-int buttonState = 0;
+unsigned long previousMillis = 0;
+bool ledOn = false;
 
 void setup() {
-  // initialize the LED pin as an output:
+  pinMode(buttonPin, INPUT_PULLUP);
   pinMode(ledPin, OUTPUT);
 
-  // initialize the pushbutton pin as an input:
-  pinMode(buttonPin, INPUT);
+  digitalWrite(ledPin, HIGH); // LED off
 }
 
 void loop() {
-  // read the state of the pushbutton value:
   buttonState = digitalRead(buttonPin);
 
-  // check if the button is pressed:
-  if (buttonState == HIGH) {
-    // turn LED on:
+  // Change mode when button is pressed
+  if (buttonState == LOW && lastButtonState == HIGH) {
+    mode++;
+
+    if (mode > 3) {
+      mode = 0;
+    }
+
+    previousMillis = millis();
+    ledOn = false;
+
+    delay(50);
+  }
+
+  lastButtonState = buttonState;
+
+  unsigned long currentMillis = millis();
+
+  if (mode == 0) {
+    // Steady
     digitalWrite(ledPin, LOW);
-  } else {
-    // turn LED off:
-    digitalWrite(ledPin, HIGH);
+  }
+
+  else {
+    int interval;
+
+    if (mode == 1) {
+      interval = 1000; // Slow blink
+    }
+    else if (mode == 2) {
+      interval = 500;  // Medium blink
+    }
+    else {
+      interval = 200;  // Fast blink
+    }
+
+    if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+      ledOn = !ledOn;
+
+      if (ledOn) {
+        digitalWrite(ledPin, LOW);
+      } else {
+        digitalWrite(ledPin, HIGH);
+      }
+    }
   }
 }
-
