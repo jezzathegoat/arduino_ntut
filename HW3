@@ -1,0 +1,275 @@
+
+/*
+  REFUELING LIGHT STICK
+  Arduino Nano
+  RGB LED - Common Anode
+  Push Button Module
+*/
+
+// LED Pins
+const int redPin = 9;
+const int greenPin = 10;
+const int bluePin = 11;
+
+// Button Pin
+const int buttonPin = 2;
+
+// Settings
+const unsigned long REFUELING_TIME = 20000;
+const unsigned long DEBOUNCE_TIME = 50;
+
+// Animation settings
+const int PULSE_SPEED = 3;
+const int FADE_SPEED = 1;
+
+const int BUTTON_PRESSED = LOW;
+
+// States
+enum State {
+  STANDBY,
+  REFUELING,
+  COMPLETE
+};
+
+State currentState = STANDBY;
+
+// Timers
+unsigned long refuelingStart = 0;
+unsigned long lastButtonChange = 0;
+unsigned long lastAnimation = 0;
+
+// Button variables
+int lastButtonReading = HIGH;
+int stableButtonState = HIGH;
+
+// Fuel animation
+int animationValue = 40;
+int animationDirection = 1;
+
+// Smooth transition variables
+int startRed = 255;
+int startGreen = 0;
+int startBlue = 0;
+
+int fadeStep = 0;
+const int FADE_STEPS = 255;
+
+// Current RGB values
+int currentRed = 0;
+int currentGreen = 0;
+int currentBlue = 0;
+
+
+// RGB function - Common Anode
+void setColor(int red, int green, int blue) {
+
+  currentRed = red;
+  currentGreen = green;
+  currentBlue = blue;
+
+  analogWrite(redPin, 255 - red);
+  analogWrite(greenPin, 255 - green);
+  analogWrite(bluePin, 255 - blue);
+}
+
+
+// STANDBY - Blue
+void standbyMode() {
+
+  setColor(0, 0, 255);
+
+}
+
+
+// REFUELING - Red and Orange pulse
+void refuelingMode() {
+
+  if (millis() - lastAnimation >= 40) {
+
+    lastAnimation = millis();
+
+    animationValue += animationDirection * PULSE_SPEED;
+
+    if (animationValue >= 255) {
+
+      animationValue = 255;
+      animationDirection = -1;
+
+    }
+
+    if (animationValue <= 40) {
+
+      animationValue = 40;
+      animationDirection = 1;
+
+    }
+
+    // Red stays at maximum
+    // Green creates orange effect
+    // Blue stays OFF
+
+    setColor(255, animationValue / 2, 0);
+
+  }
+
+}
+
+
+// Start smooth transition from current fuel color
+void startCompleteTransition() {
+
+  startRed = currentRed;
+  startGreen = currentGreen;
+  startBlue = currentBlue;
+
+  fadeStep = 0;
+
+  lastAnimation = millis();
+
+}
+
+
+// COMPLETE - Smooth transition to Green
+void completeMode() {
+
+  if (fadeStep < FADE_STEPS) {
+
+    if (millis() - lastAnimation >= 20) {
+
+      lastAnimation = millis();
+
+      fadeStep++;
+
+      int red = startRed +
+        (0 - startRed) * fadeStep / FADE_STEPS;
+
+      int green = startGreen +
+        (255 - startGreen) * fadeStep / FADE_STEPS;
+
+      int blue = startBlue +
+        (0 - startBlue) * fadeStep / FADE_STEPS;
+
+      setColor(red, green, blue);
+
+    }
+
+  }
+
+  else {
+
+    setColor(0, 255, 0);
+
+  }
+
+}
+
+
+// BUTTON - Debounce
+bool buttonPressed() {
+
+  int reading = digitalRead(buttonPin);
+
+  if (reading != lastButtonReading) {
+
+    lastButtonChange = millis();
+
+  }
+
+  if (millis() - lastButtonChange > DEBOUNCE_TIME) {
+
+    if (reading != stableButtonState) {
+
+      stableButtonState = reading;
+
+      if (stableButtonState == BUTTON_PRESSED) {
+
+        lastButtonReading = reading;
+        return true;
+
+      }
+
+    }
+
+  }
+
+  lastButtonReading = reading;
+
+  return false;
+
+}
+
+
+// SETUP
+void setup() {
+
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+
+  pinMode(buttonPin, INPUT);
+
+  standbyMode();
+
+}
+
+
+// MAIN LOOP
+void loop() {
+
+  if (buttonPressed()) {
+
+    if (currentState == STANDBY) {
+
+      currentState = REFUELING;
+
+      refuelingStart = millis();
+
+      animationValue = 40;
+      animationDirection = 1;
+
+      lastAnimation = millis();
+
+    }
+
+    else if (currentState == COMPLETE) {
+
+      currentState = STANDBY;
+
+    }
+
+  }
+
+
+  switch (currentState) {
+
+    case STANDBY:
+
+      standbyMode();
+
+      break;
+
+
+    case REFUELING:
+
+      refuelingMode();
+
+      if (millis() - refuelingStart >= REFUELING_TIME) {
+
+        startCompleteTransition();
+
+        currentState = COMPLETE;
+
+      }
+
+      break;
+
+
+    case COMPLETE:
+
+      completeMode();
+
+      break;
+
+  }
+
+}
